@@ -16,6 +16,7 @@ export default function EventTabs() {
   useEffect(() => {
     const fetchEvent = async () => {
       const response = await getEventById(id);
+      console.log(response);
       setEvent(response);
     };
     fetchEvent();

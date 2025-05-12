@@ -11,6 +11,7 @@ import {
   Ticket,
   Pencil,
   Mails,
+  IndianRupee,
 } from "lucide-react";
 import { useNavigate } from "react-router";
 import clsx from "clsx";
@@ -24,6 +25,7 @@ const iconMap = {
   Ticket: <Ticket size={18} />,
   Blog: <Pencil size={18} />,
   Mails: <Mails size={18} />,
+  Invoice: <IndianRupee size={18} />,
 };
 
 export default function AdminSidebar({ items, collapsed }) {
@@ -91,7 +93,7 @@ export default function AdminSidebar({ items, collapsed }) {
                   {/* Submenu */}
                   <div
                     className={clsx(
-                      "ml-6 overflow-hidden transition-all duration-200",
+                      "ml-6 overflow-auto thin-scrollbar transition-all duration-200",
                       !collapsed && hasChildren
                         ? isOpen
                           ? "max-h-40 mt-1"

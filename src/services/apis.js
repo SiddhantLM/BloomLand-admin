@@ -43,3 +43,7 @@ export const blogEndpoints = {
 export const newsletterEndpoints = {
   ALL: `${BASE_URL}/newsletter/all`,
 };
+
+export const invoiceEndpoints = {
+  ALL: `${BASE_URL}/invoice/all`,
+};

@@ -57,6 +57,11 @@ export default function Sidebar({ children }) {
       href: "/admin/newsletter",
       icon: "Mails",
     },
+    {
+      label: "Invoices",
+      href: "/admin/invoices",
+      icon: "Invoice",
+    },
   ];
 
   if (!mounted) return null;

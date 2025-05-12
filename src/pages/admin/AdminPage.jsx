@@ -15,6 +15,7 @@ import BlogDetails from "./BlogDetails";
 import AdminTicketsPage from "./TicketPage";
 import TicketPage from "./TicketDetails";
 import Newsletter from "./Newsletter";
+import Invoices from "./Invoices";
 const AdminPage = () => {
   const { token } = useSelector((state) => state.auth);
   const navigate = useNavigate();
@@ -43,6 +44,7 @@ const AdminPage = () => {
             <Route path="/tickets" element={<AdminTicketsPage />} />
             <Route path="/tickets/:id" element={<TicketPage />} />
             <Route path="/newsletter" element={<Newsletter />} />
+            <Route path="/invoices" element={<Invoices />} />
             <Route path="*" element={<ErrorPage />} />
           </Routes>
         </Sidebar>

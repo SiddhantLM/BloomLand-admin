@@ -5,6 +5,7 @@ import path from "path";
 import checker from "vite-plugin-checker";
 import eslintPlugin from "vite-plugin-eslint";
 import Inspect from "vite-plugin-inspect";
+import svgr from "vite-plugin-svgr";
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [
@@ -13,6 +14,7 @@ export default defineConfig({
     checker({ typescript: false }),
     eslintPlugin(),
     Inspect(),
+    svgr(),
   ],
   resolve: {
     alias: {

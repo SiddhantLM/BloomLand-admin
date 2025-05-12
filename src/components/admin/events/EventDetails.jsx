@@ -63,6 +63,9 @@ import {
 import { deleteEvent, updateEvent } from "@/services/event";
 import { useSelector } from "react-redux";
 import { Editor } from "primereact/editor";
+import * as XLSX from "xlsx";
+import FileSaver, { saveAs } from "file-saver";
+
 export default function EventDetail({ event, setEvent }) {
   const [copied, setCopied] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
@@ -270,6 +273,325 @@ export default function EventDetail({ event, setEvent }) {
     }
   };
 
+  const downloadEventAsExcel = (event) => {
+    // Create workbook and worksheet
+    const wb = XLSX.utils.book_new();
+
+    // Format dates for better readability
+    const formattedEvent = {
+      ...event,
+      start_date: format(new Date(event.start_date), "MMMM d, yyyy"),
+      end_date: format(new Date(event.end_date), "MMMM d, yyyy"),
+      scheduledFor:
+        format(new Date(event.scheduledFor), "MMMM d, yyyy, h:mm a") + " UTC",
+      created_at: format(new Date(event.created_at), "MMMM d, yyyy"),
+      updated_at: format(new Date(event.updated_at), "MMMM d, yyyy"),
+      description: event.description.replace(/<\/?p>/g, ""),
+      location: `${event.location.city}, ${event.location.state}, ${event.location.country}`,
+      price: `₹${event.price.toLocaleString()}`,
+    };
+
+    // Define style constants for consistency
+    const STYLES = {
+      header: {
+        font: { bold: true, sz: 16, color: { rgb: "FFFFFF" } },
+        fill: { fgColor: { rgb: "4F46E5" } },
+        alignment: { horizontal: "center", vertical: "center" },
+        border: {
+          top: { style: "thin", color: { rgb: "E5E7EB" } },
+          bottom: { style: "thin", color: { rgb: "E5E7EB" } },
+          left: { style: "thin", color: { rgb: "E5E7EB" } },
+          right: { style: "thin", color: { rgb: "E5E7EB" } },
+        },
+      },
+      subheader: {
+        font: { bold: true, sz: 14 },
+        fill: { fgColor: { rgb: "E5E7EB" } },
+        border: {
+          top: { style: "thin", color: { rgb: "D1D5DB" } },
+          bottom: { style: "thin", color: { rgb: "D1D5DB" } },
+        },
+      },
+      evenRow: {
+        fill: { fgColor: { rgb: "F9FAFB" } },
+      },
+      labelCell: {
+        font: { bold: true },
+        fill: { fgColor: { rgb: "F3F4F6" } },
+      },
+      tableHeader: {
+        font: { bold: true, color: { rgb: "FFFFFF" } },
+        fill: { fgColor: { rgb: "4F46E5" } },
+        border: {
+          top: { style: "thin", color: { rgb: "E5E7EB" } },
+          bottom: { style: "thin", color: { rgb: "E5E7EB" } },
+          left: { style: "thin", color: { rgb: "E5E7EB" } },
+          right: { style: "thin", color: { rgb: "E5E7EB" } },
+        },
+        alignment: { horizontal: "center" },
+      },
+    };
+
+    // MAIN INFO SHEET with better formatting
+    const mainInfoData = [
+      ["Event Details - " + event.title, ""],
+      ["", ""],
+      ["Title", event.title],
+      ["Category", event.category],
+      ["Description", formattedEvent.description],
+      ["Location", formattedEvent.location],
+      ["Price", formattedEvent.price],
+      ["Visibility", event.visibility],
+      ["", ""],
+      ["DATES", ""],
+      ["Start Date", formattedEvent.start_date],
+      ["End Date", formattedEvent.end_date],
+      ["Scheduled For", formattedEvent.scheduledFor],
+      ["Created At", formattedEvent.created_at],
+      ["Updated At", formattedEvent.updated_at],
+    ];
+
+    const mainWS = XLSX.utils.aoa_to_sheet(mainInfoData);
+
+    // Apply styles to main sheet
+    // eslint-disable-next-line no-unused-vars
+    const mainRange = XLSX.utils.decode_range(mainWS["!ref"]);
+
+    // Apply cell styling for the main worksheet
+    mainWS["A1"] = { v: "Event Details - " + event.title, s: STYLES.header };
+    mainWS["B1"] = { v: "", s: STYLES.header }; // Extend header styling
+    mainWS["A9"] = { v: "DATES", s: STYLES.subheader };
+    mainWS["B9"] = { v: "", s: STYLES.subheader }; // Extend subheader styling
+
+    // Add styling to label cells (first column)
+    for (let r = 3; r <= 8; r++) {
+      if (mainWS["A" + r]) {
+        mainWS["A" + r].s = STYLES.labelCell;
+      }
+    }
+
+    for (let r = 11; r <= 15; r++) {
+      if (mainWS["A" + r]) {
+        mainWS["A" + r].s = STYLES.labelCell;
+      }
+    }
+
+    // Add alternating row colors
+    for (let r = 3; r <= 15; r++) {
+      if (r % 2 === 0 && mainWS["B" + r]) {
+        mainWS["B" + r].s = STYLES.evenRow;
+      }
+    }
+
+    // Set column widths
+    mainWS["!cols"] = [
+      { width: 20 }, // Column A
+      { width: 50 }, // Column B
+    ];
+
+    // Merge cells for headers
+    mainWS["!merges"] = [
+      { s: { r: 0, c: 0 }, e: { r: 0, c: 1 } }, // Merge A1:B1
+      { s: { r: 9, c: 0 }, e: { r: 9, c: 1 } }, // Merge A10:B10
+    ];
+
+    // INCLUDES SHEET with better formatting
+    const includesData = [["Included Items"], [""]];
+
+    // eslint-disable-next-line no-unused-vars
+    event.includes.forEach((item, index) => {
+      includesData.push([item.replace("\\", "")]);
+    });
+
+    const includesWS = XLSX.utils.aoa_to_sheet(includesData);
+
+    // Style the includes sheet
+    includesWS["A1"] = { v: "Included Items", s: STYLES.header };
+
+    // Add styling to items
+    for (let r = 3; r < includesData.length; r++) {
+      if (r % 2 === 0) {
+        includesWS["A" + r] = {
+          v: includesData[r][0],
+          s: STYLES.evenRow,
+        };
+      }
+    }
+
+    includesWS["!cols"] = [{ width: 40 }];
+
+    // REQUESTS SHEET - Create a sheet for requests data
+    const requestsHeaders = ["ID", "Email", "Google ID", "Role", "Journey"];
+    const requestsData = [requestsHeaders, ["", "", "", "", ""]];
+
+    if (event.requests && event.requests.length > 0) {
+      event.requests.forEach((user) => {
+        requestsData.push([
+          user._id || "N/A",
+          user.email || "N/A",
+          user.googleId || "N/A",
+          user.role || "N/A",
+          user.journey && user.journey.length
+            ? `${user.journey.length} items`
+            : "None",
+        ]);
+      });
+    } else {
+      requestsData.push(["No requests available", "", "", "", ""]);
+    }
+
+    const requestsWS = XLSX.utils.aoa_to_sheet(requestsData);
+
+    // Style requests sheet
+    for (let c = 0; c < requestsHeaders.length; c++) {
+      const cell = XLSX.utils.encode_cell({ r: 0, c });
+      requestsWS[cell] = { v: requestsHeaders[c], s: STYLES.tableHeader };
+    }
+
+    // Apply alternating row colors
+    for (let r = 2; r < requestsData.length; r++) {
+      if (r % 2 === 0) {
+        for (let c = 0; c < requestsHeaders.length; c++) {
+          const cell = XLSX.utils.encode_cell({ r, c });
+          if (requestsWS[cell]) {
+            requestsWS[cell].s = { ...requestsWS[cell].s, ...STYLES.evenRow };
+          }
+        }
+      }
+    }
+
+    requestsWS["!cols"] = [
+      { width: 25 }, // ID
+      { width: 30 }, // Email
+      { width: 25 }, // Google ID
+      { width: 15 }, // Role
+      { width: 15 }, // Journey
+    ];
+
+    // APPROVED SHEET - Create a sheet for approved users
+    const approvedHeaders = ["ID", "Email", "Google ID", "Role", "Journey"];
+    const approvedData = [approvedHeaders, ["", "", "", "", ""]];
+
+    if (event.approved && event.approved.length > 0) {
+      event.approved.forEach((user) => {
+        approvedData.push([
+          user._id || "N/A",
+          user.email || "N/A",
+          user.googleId || "N/A",
+          user.role || "N/A",
+          user.journey && user.journey.length
+            ? `${user.journey.length} items`
+            : "None",
+        ]);
+      });
+    } else {
+      approvedData.push(["No approved users", "", "", "", ""]);
+    }
+
+    const approvedWS = XLSX.utils.aoa_to_sheet(approvedData);
+
+    // Style approved sheet
+    for (let c = 0; c < approvedHeaders.length; c++) {
+      const cell = XLSX.utils.encode_cell({ r: 0, c });
+      approvedWS[cell] = { v: approvedHeaders[c], s: STYLES.tableHeader };
+    }
+
+    // Apply alternating row colors
+    for (let r = 2; r < approvedData.length; r++) {
+      if (r % 2 === 0) {
+        for (let c = 0; c < approvedHeaders.length; c++) {
+          const cell = XLSX.utils.encode_cell({ r, c });
+          if (approvedWS[cell]) {
+            approvedWS[cell].s = { ...approvedWS[cell].s, ...STYLES.evenRow };
+          }
+        }
+      }
+    }
+
+    approvedWS["!cols"] = [
+      { width: 25 }, // ID
+      { width: 30 }, // Email
+      { width: 25 }, // Google ID
+      { width: 15 }, // Role
+      { width: 15 }, // Journey
+    ];
+
+    // ATTENDEES SHEET - Create a sheet for attendees
+    const attendeesHeaders = ["ID", "Email", "Google ID", "Role", "Journey"];
+    const attendeesData = [attendeesHeaders, ["", "", "", "", ""]];
+
+    if (event.attendees && event.attendees.length > 0) {
+      event.attendees.forEach((user) => {
+        attendeesData.push([
+          user._id || "N/A",
+          user.email || "N/A",
+          user.googleId || "N/A",
+          user.role || "N/A",
+          user.journey && user.journey.length
+            ? `${user.journey.length} items`
+            : "None",
+        ]);
+      });
+    } else {
+      attendeesData.push(["No attendees", "", "", "", ""]);
+    }
+
+    const attendeesWS = XLSX.utils.aoa_to_sheet(attendeesData);
+
+    // Style attendees sheet
+    for (let c = 0; c < attendeesHeaders.length; c++) {
+      const cell = XLSX.utils.encode_cell({ r: 0, c });
+      attendeesWS[cell] = { v: attendeesHeaders[c], s: STYLES.tableHeader };
+    }
+
+    // Apply alternating row colors
+    for (let r = 2; r < attendeesData.length; r++) {
+      if (r % 2 === 0) {
+        for (let c = 0; c < attendeesHeaders.length; c++) {
+          const cell = XLSX.utils.encode_cell({ r, c });
+          if (attendeesWS[cell]) {
+            attendeesWS[cell].s = { ...attendeesWS[cell].s, ...STYLES.evenRow };
+          }
+        }
+      }
+    }
+
+    attendeesWS["!cols"] = [
+      { width: 25 }, // ID
+      { width: 30 }, // Email
+      { width: 25 }, // Google ID
+      { width: 15 }, // Role
+      { width: 15 }, // Journey
+    ];
+
+    // Add all sheets to workbook
+    XLSX.utils.book_append_sheet(wb, mainWS, "Event Information");
+    XLSX.utils.book_append_sheet(wb, includesWS, "Included Items");
+    XLSX.utils.book_append_sheet(wb, requestsWS, "Requests");
+    XLSX.utils.book_append_sheet(wb, approvedWS, "Approved Users");
+    XLSX.utils.book_append_sheet(wb, attendeesWS, "Attendees");
+
+    // Generate Excel file
+    const wbout = XLSX.write(wb, { bookType: "xlsx", type: "binary" });
+
+    // Convert string to ArrayBuffer
+    function s2ab(s) {
+      const buf = new ArrayBuffer(s.length);
+      const view = new Uint8Array(buf);
+      for (let i = 0; i < s.length; i++) view[i] = s.charCodeAt(i) & 0xff;
+      return buf;
+    }
+
+    // Create file and trigger download
+    const fileName = `${event.title
+      .replace(/\s+/g, "-")
+      .toLowerCase()}-details.xlsx`;
+    saveAs(
+      new Blob([s2ab(wbout)], { type: "application/octet-stream" }),
+      fileName
+    );
+  };
+
   const validateForm = () => {
     const newErrors = {};
 
@@ -410,6 +732,52 @@ export default function EventDetail({ event, setEvent }) {
       className="w-full border border-gray-300 rounded-md px-3 py-2"
     />
   );
+
+  const downloadExcel = () => {
+    try {
+      // Extract attendees array from event object
+      const attendees = event?.attendees || [];
+
+      // Map attendees to simplified format for Excel
+      const exportData = attendees.map((attendee) => ({
+        Name: attendee.name || "",
+        Email: attendee.email || "",
+        "Date of Birth": format(new Date(attendee.dob), "d MMMM, yyyy") || "",
+        Phone: attendee.phone || "",
+        Journey: Array.isArray(attendee.journey)
+          ? attendee.journey.join(", ")
+          : "",
+      }));
+
+      if (exportData.length === 0) {
+        alert("No attendees data available to download");
+        return;
+      }
+
+      // Create workbook and worksheet
+      const ws = XLSX.utils.json_to_sheet(exportData);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Attendees");
+
+      // Generate filename with event title and date
+      const eventTitle = event?.title || "Event";
+      const fileName = `${eventTitle
+        .replace(/[^a-z0-9]/gi, "_")
+        .toLowerCase()}_attendees_${
+        new Date().toISOString().split("T")[0]
+      }.xlsx`;
+
+      // Create excel file and trigger download
+      const excelBuffer = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+      const data = new Blob([excelBuffer], {
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      });
+      FileSaver.saveAs(data, fileName);
+    } catch (error) {
+      console.error("Error downloading attendees:", error);
+      alert("Failed to download attendees data");
+    }
+  };
 
   return (
     <div className="container mx-auto px-4 py-6">
@@ -628,7 +996,11 @@ export default function EventDetail({ event, setEvent }) {
                               ? event.attendees.length
                               : "0"}
                           </p>
-                          <Button variant="outline" size="sm">
+                          <Button
+                            onClick={downloadExcel}
+                            variant="outline"
+                            size="sm"
+                          >
                             <Download className="h-4 w-4 mr-2" />
                             Export List
                           </Button>
@@ -758,7 +1130,10 @@ export default function EventDetail({ event, setEvent }) {
                     className="w-full justify-start overflow-x-clip"
                   >
                     <Download className="h-4 w-4 mr-2 md:mr-0" />
-                    <span className="md:hidden lg:inline ml-2">
+                    <span
+                      onClick={() => downloadEventAsExcel(event)}
+                      className="md:hidden lg:inline ml-2"
+                    >
                       Export Data
                     </span>
                   </Button>
